@@ -12,4 +12,4 @@ Installation (from repository):
     cd gitcheckpoints
     python setup.py install
     add this line to IPython config:
-        c.FileContentsManager.checkpoints_class = 'gitcheckpoints.gitcheckpoints.GitCheckpoints'
+        c.FileContentsManager.checkpoints_class = 'gitcheckpoints.GitCheckpoints'
