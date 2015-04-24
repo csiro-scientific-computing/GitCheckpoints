@@ -120,7 +120,7 @@ class GitCheckpoints(FileManagerMixin, Checkpoints):
 
     def list_checkpoints(self, path):
         """list the checkpoints for a given file"""
-        path = path.strip('/')
+        path = os.path.join(self.git_dir, path)
         list = []
         if os.path.isfile(path):
             try:
