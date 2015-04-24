@@ -24,11 +24,22 @@ class GitCheckpoints(FileManagerMixin, Checkpoints):
     
     def __init__(self, *args, **kwargs):
         super(GitCheckpoints, self).__init__(*args, **kwargs)
+        self.git_dir = self._git_dir_default()
+        self.log.info('Versionning notebooks with GitCheckpoints from local directory: ' + self.git_dir)
         try:
-            subprocess.check_output(['git', 'init'], stderr=subprocess.STDOUT)
+            subprocess.check_output(['git', 'init'], stderr=subprocess.STDOUT, cwd=self.git_dir)
         except subprocess.CalledProcessError as e:
             err = e.output.decode(DEFAULT_ENCODING, 'replace')
             self.log.exception(err)
+
+    def _git_dir_default(self):
+        try:
+            return self.parent.parent.notebook_dir
+        except AttributeError:
+            try:
+                return self.parent.root_dir
+            except AttributeError:
+                return getcwd()
 
     def _root_dir_default(self):
         try:
@@ -41,8 +52,8 @@ class GitCheckpoints(FileManagerMixin, Checkpoints):
         """Create a checkpoint."""
         src_path = contents_mgr._get_os_path(path)
         try:
-            subprocess.check_output(['git', 'add', src_path], stderr=subprocess.STDOUT)
-            subprocess.check_output(['git', 'commit', '-m', "Checkpoint for '%s'" % src_path], stderr=subprocess.STDOUT)
+            subprocess.check_output(['git', 'add', src_path], stderr=subprocess.STDOUT, cwd=self.git_dir)
+            subprocess.check_output(['git', 'commit', '-m', "Checkpoint for '%s'" % src_path], stderr=subprocess.STDOUT, cwd=self.git_dir)
         except subprocess.CalledProcessError as e:
             if e.returncode == 1:
                 # no changes
@@ -52,7 +63,7 @@ class GitCheckpoints(FileManagerMixin, Checkpoints):
                 self.log.exception(err)
             return None
         try:
-            output = subprocess.check_output(['git', 'log', '--pretty=format:"%h - %cd"', src_path], stderr=subprocess.STDOUT)
+            output = subprocess.check_output(['git', 'log', '--pretty=format:"%h - %cd"', src_path], stderr=subprocess.STDOUT, cwd=self.git_dir)
             output = output.decode(DEFAULT_ENCODING, 'replace')
             return self.checkpoint_model(output.splitlines()[0])
         except subprocess.CalledProcessError as e:
@@ -63,7 +74,7 @@ class GitCheckpoints(FileManagerMixin, Checkpoints):
         """Restore a checkpoint."""
         path = path.strip('/')
         try:
-            subprocess.check_output(['git', 'checkout', checkpoint_id, path], stderr=subprocess.STDOUT)
+            subprocess.check_output(['git', 'checkout', checkpoint_id, path], stderr=subprocess.STDOUT, cwd=self.git_dir)
         except subprocess.CalledProcessError as e:
             err = e.output.decode(DEFAULT_ENCODING, 'replace')
             self.log.exception(err)
@@ -73,9 +84,9 @@ class GitCheckpoints(FileManagerMixin, Checkpoints):
         old_path = old_path.strip('/')
         new_path = new_path.strip('/')
         try:
-            subprocess.check_output(['git', 'rm', old_path], stderr=subprocess.STDOUT)
-            subprocess.check_output(['git', 'add', new_path], stderr=subprocess.STDOUT)
-            subprocess.check_output(['git', 'commit', '-m', "Renamed '%s' to '%s'" % (old_path, new_path)], stderr=subprocess.STDOUT)
+            subprocess.check_output(['git', 'rm', old_path], stderr=subprocess.STDOUT, cwd=self.git_dir)
+            subprocess.check_output(['git', 'add', new_path], stderr=subprocess.STDOUT, cwd=self.git_dir)
+            subprocess.check_output(['git', 'commit', '-m', "Renamed '%s' to '%s'" % (old_path, new_path)], stderr=subprocess.STDOUT, cwd=self.git_dir)
         except subprocess.CalledProcessError as e:
             if e.returncode == 128:
                 #file not committed
@@ -93,8 +104,8 @@ class GitCheckpoints(FileManagerMixin, Checkpoints):
         """Delete all checkpoints for the given path."""
         path = path.strip('/')
         try:
-            subprocess.check_output(['git', 'rm', path], stderr=subprocess.STDOUT)
-            subprocess.check_output(['git', 'commit', '-m', "Deleted '%s'" % path], stderr=subprocess.STDOUT)
+            subprocess.check_output(['git', 'rm', path], stderr=subprocess.STDOUT, cwd=self.git_dir)
+            subprocess.check_output(['git', 'commit', '-m', "Deleted '%s'" % path], stderr=subprocess.STDOUT, cwd=self.git_dir)
         except subprocess.CalledProcessError as e:
             if e.returncode == 128 or e.returncode == 1:
                 #file not committed
@@ -109,11 +120,11 @@ class GitCheckpoints(FileManagerMixin, Checkpoints):
 
     def list_checkpoints(self, path):
         """list the checkpoints for a given file"""
-        path = path.strip('/')
+        path = os.path.join(self.git_dir, path)
         list = []
         if os.path.isfile(path):
             try:
-                output = subprocess.check_output(['git', 'log', '--pretty=format:"%h - %cd"', path], stderr=subprocess.STDOUT)
+                output = subprocess.check_output(['git', 'log', '--pretty=format:"%h - %cd"', path], stderr=subprocess.STDOUT, cwd=self.git_dir)
                 output = output.decode(DEFAULT_ENCODING, 'replace')
                 for commit in output.splitlines():
                     cp = self.checkpoint_model(commit)
