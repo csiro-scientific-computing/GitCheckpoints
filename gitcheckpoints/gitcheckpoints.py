@@ -61,14 +61,16 @@ class GitCheckpoints(FileManagerMixin, Checkpoints):
             else:
                 err = e.output.decode(DEFAULT_ENCODING, 'replace')
                 self.log.exception(err)
-            return None
+                return None
         try:
             output = subprocess.check_output(['git', 'log', '--pretty=format:"%h - %cd"', src_path], stderr=subprocess.STDOUT, cwd=self.git_dir)
             output = output.decode(DEFAULT_ENCODING, 'replace')
-            return self.checkpoint_model(output.splitlines()[0])
+            checkpoint = self.checkpoint_model(output.splitlines()[0])
+            return checkpoint
         except subprocess.CalledProcessError as e:
             err = e.output.decode(DEFAULT_ENCODING, 'replace')
             self.log.exception(err)
+            return None
 
     def restore_checkpoint(self, contents_mgr, checkpoint_id, path):
         """Restore a checkpoint."""
@@ -141,7 +143,7 @@ class GitCheckpoints(FileManagerMixin, Checkpoints):
 
     def checkpoint_model(self, log):
         """construct the info dict for a given checkpoint"""
-        commitinfo = log.strip('"').split('-')
+        commitinfo = log.strip('"').split('-', 1)
         if len(commitinfo) == 2:
             return dict(
                 id = commitinfo[0].strip(),
