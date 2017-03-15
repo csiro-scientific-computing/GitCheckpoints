@@ -4,13 +4,13 @@ Git-based Checkpoints implementations.
 import os
 import shutil
 
-from IPython.html.services.contents.checkpoints import Checkpoints
-from IPython.html.services.contents.fileio import FileManagerMixin
+from notebook.services.contents.checkpoints import Checkpoints
+from notebook.services.contents.fileio import FileManagerMixin
 
 from IPython.utils import tz
 from IPython.utils.path import ensure_dir_exists
 from IPython.utils.py3compat import getcwd
-from IPython.utils.traitlets import Unicode
+from traitlets import Unicode
 from IPython.utils.encoding import DEFAULT_ENCODING
 import subprocess
 
@@ -25,7 +25,7 @@ class GitCheckpoints(FileManagerMixin, Checkpoints):
     def __init__(self, *args, **kwargs):
         super(GitCheckpoints, self).__init__(*args, **kwargs)
         self.git_dir = self._git_dir_default()
-        self.log.info('Versionning notebooks with GitCheckpoints from local directory: ' + self.git_dir)
+        self.log.info('Versioning notebooks with GitCheckpoints from local directory: ' + self.git_dir)
         try:
             subprocess.check_output(['git', 'init'], stderr=subprocess.STDOUT, cwd=self.git_dir)
         except subprocess.CalledProcessError as e:
@@ -122,8 +122,8 @@ class GitCheckpoints(FileManagerMixin, Checkpoints):
 
     def list_checkpoints(self, path):
         """list the checkpoints for a given file"""
-        path = os.path.join(self.git_dir, path)
-        list = []
+        path = os.path.join(self.git_dir, path.lstrip('/').lstrip('\\'))
+        checkpoints = []
         if os.path.isfile(path):
             try:
                 output = subprocess.check_output(['git', 'log', '--pretty=format:"%h - %cd"', path], stderr=subprocess.STDOUT, cwd=self.git_dir)
@@ -131,7 +131,7 @@ class GitCheckpoints(FileManagerMixin, Checkpoints):
                 for commit in output.splitlines():
                     cp = self.checkpoint_model(commit)
                     if cp:
-                        list.append(cp)
+                        checkpoints.append(cp)
             except subprocess.CalledProcessError as e:
                 if e.returncode == 128:
                     #file not committed
@@ -139,7 +139,7 @@ class GitCheckpoints(FileManagerMixin, Checkpoints):
                 else:
                     err = e.output.decode(DEFAULT_ENCODING, 'replace')
                     self.log.exception(err)
-        return list
+        return checkpoints
 
     def checkpoint_model(self, log):
         """construct the info dict for a given checkpoint"""
